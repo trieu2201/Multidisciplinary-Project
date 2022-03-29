@@ -1,14 +1,29 @@
 #include "DHT.h"
+#include <ESP8266WiFi.h>
+#include "Adafruit_MQTT.h"
+#include "Adafruit_MQTT_Client.h"
 
-#define DHTPIN 4 // what digital pin we're connected to
+/************************* WiFi Access Point *********************************/
 
-#define DHTTYPE DHT11 // DHT 11
+#define WLAN_SSID       "...your SSID..."
+#define WLAN_PASS       "...your password..."
+
+/************************* Adafruit.io Setup *********************************/
+
+#define AIO_SERVER      "io.adafruit.com"
+#define AIO_SERVERPORT  1883                   // use 8883 for SSL
+#define AIO_USERNAME    "NeedAName"
+#define AIO_KEY         "aio_ATlR951Rw2jAcJAFMAWNCFOMSKRA"
+
+#define DHTPIN D4 //what digital pin we're connected to
+
+#define DHTTYPE DHT11 //DHT 11
 
 DHT dht(DHTPIN, DHTTYPE);
 
 static char celsiusTemp[7];
-static char fahrenheitTemp [7];
-static char humidityTemp [7];
+static char fahrenheitTemp[7];
+static char humidityTemp[7];
 
 void setup() {
   Serial.begin(9600);
