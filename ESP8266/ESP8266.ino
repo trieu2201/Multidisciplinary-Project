@@ -3,69 +3,101 @@
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
 
-/************************* WiFi Access Point *********************************/
+// Wifi parameters
+#define WLAN_SSID       "iPhone"
+#define WLAN_PASS       "00000000"
 
-#define WLAN_SSID       "...your SSID..."
-#define WLAN_PASS       "...your password..."
-
-/************************* Adafruit.io Setup *********************************/
-
+// Adafruit IO
 #define AIO_SERVER      "io.adafruit.com"
-#define AIO_SERVERPORT  1883                   // use 8883 for SSL
+#define AIO_SERVERPORT  1883                   
 #define AIO_USERNAME    "NeedAName"
-#define AIO_KEY         "aio_ATlR951Rw2jAcJAFMAWNCFOMSKRA"
+#define AIO_KEY         "aio_orUI57evFSgygmTG6cZshWBD5BzW"
 
-#define DHTPIN D4 //what digital pin we're connected to
+WiFiClient client;
 
-#define DHTTYPE DHT11 //DHT 11
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
+Adafruit_MQTT_Publish SG_Temp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/sg-temp");
+Adafruit_MQTT_Publish SG_Humi = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/sg-humi");
+
+// DHT parameters
+#define DHTPIN          D4 //what digital pin we're connected to
+
+#define DHTTYPE         DHT11 //DHT 11
 
 DHT dht(DHTPIN, DHTTYPE);
-
-static char celsiusTemp[7];
-static char fahrenheitTemp[7];
-static char humidityTemp[7];
+byte hum = 0;  //Stores humidity value
+byte temp = 0; //Stores temperature value
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+  Serial.println(F("Adafruit IO Example"));
+  // Connect to WiFi access point.
+  Serial.println(); Serial.println();
+  delay(10);
+  Serial.print(F("Connecting to "));
+  Serial.println(WLAN_SSID);
+  WiFi.begin(WLAN_SSID, WLAN_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(F("."));
+  }
+  Serial.println();
+  Serial.println(F("WiFi connected"));
+  Serial.println(F("IP address: "));
+  Serial.println(WiFi.localIP());
+
+  // connect to adafruit io
+  connect();
+  
   Serial.println("DHTxx test!");
   delay(10);
   dht.begin();
 }
 
+// connect to adafruit io via MQTT
+void connect() {
+  Serial.print(F("Connecting to Adafruit IO... "));
+  int8_t ret;
+  while ((ret = mqtt.connect()) != 0) {
+    switch (ret) {
+      case 1: Serial.println(F("Wrong protocol")); break;
+      case 2: Serial.println(F("ID rejected")); break;
+      case 3: Serial.println(F("Server unavail")); break;
+      case 4: Serial.println(F("Bad user/pass")); break;
+      case 5: Serial.println(F("Not authed")); break;
+      case 6: Serial.println(F("Failed to subscribe")); break;
+      default: Serial.println(F("Connection failed")); break;
+    }
+
+    if(ret >= 0)
+      mqtt.disconnect();
+
+    Serial.println(F("Retrying connection..."));
+    delay(10000);
+  }
+  Serial.println(F("Adafruit IO Connected!"));
+}
+
 void loop() {
-  // Wait a few seconds between measurements.
-  delay(2000);
-
-  // Reading temperature or humidity takes about 250 milliseconds!
-   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
-  float h = dht.readHumidity();
-  // Read temperature as Celsius (the default)
-  float t = dht.readTemperature();
-  // Read temperature as Fahrenheit (isFahrenheit = true)
-  float f = dht.readTemperature(true);
-
-  // Check if any reads failed and exit early (to try again).
-  if (isnan(h) || isnan(t) || isnan(f)) {
-    Serial.println("Failed to read from DHT sensor!");
+  // ping adafruit io a few times to make sure we remain connected
+  if(! mqtt.ping(3)) {
+    // reconnect to adafruit io
+    if(! mqtt.connected())
+      connect();
   }
-  else {
-    // Compute heat index in Fahrenheit (the default)
-    float hif = dht.computeHeatIndex(f, h);
-    // Compute heat index in Celsius (isFahreheit = false)
-    float hic = dht.computeHeatIndex(t, h, false);
-
-    Serial.print("Humidity: ");
-    Serial.print(h);
-    Serial.print(" %\t");
-    Serial.print("Temperature: ");
-    Serial.print(t);
-    Serial.print(" *C ");
-    Serial.print(f);
-    Serial.print(" *F\t");
-    Serial.print("Heat index: ");
-    Serial.print(hic);
-    Serial.print(" *C ");
-    Serial.print(hif);
-    Serial.println(" *F");
-  }
+  hum = dht.readHumidity();
+  temp = dht.readTemperature();
+  Serial.print((int)temp); Serial.print(" *C, "); 
+  Serial.print((int)hum); Serial.println(" H");
+  delay(5000);
+   
+   if (! SG_Temp.publish(temp)) {                     //Publish to Adafruit
+      Serial.println(F("Failed"));
+    } 
+       if (! SG_Humi.publish(hum)) {                     //Publish to Adafruit
+      Serial.println(F("Failed"));
+    }
+    else {
+      Serial.println(F("Sent!"));
+    }
 }
