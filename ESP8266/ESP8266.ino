@@ -1,36 +1,29 @@
 #include "DHT.h"
 #include <ESP8266WiFi.h>
-#include "Adafruit_MQTT.h"
-#include "Adafruit_MQTT_Client.h"
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
+#include <ArduinoJson.h>
 
 // Wifi parameters
 #define WLAN_SSID       "HoaiGiang"
 #define WLAN_PASS       "hoaigiang1012"
 
-// Adafruit IO
-#define AIO_SERVER      "io.adafruit.com"
-#define AIO_SERVERPORT  1883                   
-#define AIO_USERNAME    "NeedAName"
-#define AIO_KEY         "aio_fhbw55RG63QAFehEIcQU13WS0u0g"
-
-WiFiClient client;
-
-Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
-Adafruit_MQTT_Publish SG_Temp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/smart-garden-iot.humidity");
-Adafruit_MQTT_Publish SG_Humi = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/smart-garden-iot.temperature");
+// Light Resistor parameter
+#define LEDPIN           D1
 
 // DHT parameters
-#define DHTPIN          D4 //what digital pin we're connected to
+#define DHTPIN          D4
 
-#define DHTTYPE         DHT11 //DHT 11
+#define DHTTYPE         DHT11
 
 DHT dht(DHTPIN, DHTTYPE);
-byte hum = 0;  //Stores humidity value
-byte temp = 0; //Stores temperature value
+float hum = 0;
+float temp = 0;
+float moisture = 0;
+byte  PR = 0;
 
 void setup() {
   Serial.begin(115200);
-  Serial.println(F("Adafruit IO Example"));
   // Connect to WiFi access point.
   Serial.println(); Serial.println();
   delay(10);
@@ -46,58 +39,87 @@ void setup() {
   Serial.println(F("IP address: "));
   Serial.println(WiFi.localIP());
 
-  // connect to adafruit io
-  connect();
-  
-  Serial.println("DHTxx test!");
   delay(10);
   dht.begin();
-}
-
-// connect to adafruit io via MQTT
-void connect() {
-  Serial.print(F("Connecting to Adafruit IO... "));
-  int8_t ret;
-  while ((ret = mqtt.connect()) != 0) {
-    switch (ret) {
-      case 1: Serial.println(F("Wrong protocol")); break;
-      case 2: Serial.println(F("ID rejected")); break;
-      case 3: Serial.println(F("Server unavail")); break;
-      case 4: Serial.println(F("Bad user/pass")); break;
-      case 5: Serial.println(F("Not authed")); break;
-      case 6: Serial.println(F("Failed to subscribe")); break;
-      default: Serial.println(F("Connection failed")); break;
-    }
-
-    if(ret >= 0)
-      mqtt.disconnect();
-
-    Serial.println(F("Retrying connection..."));
-    delay(10000);
-  }
-  Serial.println(F("Adafruit IO Connected!"));
+  pinMode(A0,INPUT);
+  pinMode(D1,INPUT);
 }
 
 void loop() {
-  // ping adafruit io a few times to make sure we remain connected
-  if(! mqtt.ping(3)) {
-    // reconnect to adafruit io
-    if(! mqtt.connected())
-      connect();
-  }
-  hum = dht.readHumidity();
-  temp = dht.readTemperature();
-  Serial.print((int)temp); Serial.print(" *C, "); 
-  Serial.print((int)hum); Serial.println(" H");
-  delay(5000);
-   
-   if (! SG_Temp.publish(temp)) {                     //Publish to Adafruit
-      Serial.println(F("Failed"));
-    } 
-       if (! SG_Humi.publish(hum)) {                     //Publish to Adafruit
-      Serial.println(F("Failed"));
-    }
-    else {
-      Serial.println(F("Sent!"));
-    }
+    String temp1, hum1, moisture1, PR1;
+    WiFiClient wifiClient;
+  
+    hum   = dht.readHumidity();
+    temp  = dht.readTemperature();
+    Serial.println(hum);
+    Serial.println(temp);
+    
+    moisture = analogRead(A0);
+    Serial.println(moisture);
+
+    PR = digitalRead(D1);
+    Serial.println(PR);
+
+    temp1 = String(temp, 3);
+    temp1 = "{\"value\" :" + temp1 + "}" ; 
+
+    hum1 = String(hum, 3);
+    hum1 = "{\"value\" :" + hum1 + "}" ; 
+
+    moisture1 = String(moisture, 3);
+    moisture1 = "{\"value\" :" + moisture1 + "}" ; 
+
+    PR1 = String(PR, 3);
+    PR1 = "{\"value\" :" + PR1 + "}" ; 
+    
+    HTTPClient http;
+    
+    http.begin(wifiClient, "http://danganhapi1.herokuapp.com/api/temperature"); 
+    http.addHeader("Content-Type", "application/json");
+    
+    //int httpCode = http.POST("{\"value\":}");
+    int httpCode_t = http.POST(temp1);   
+    String payload_t = http.getString();                  
+
+    Serial.println(httpCode_t);  
+    Serial.println(payload_t);
+ 
+    http.end(); 
+    
+    http.begin(wifiClient, "http://danganhapi1.herokuapp.com/api/humidity/"); 
+    http.addHeader("Content-Type", "application/json");
+ 
+    int httpCode_h = http.POST(hum1);   
+    String payload_h = http.getString();              
+ 
+    Serial.println(httpCode_h);   
+    Serial.println(payload_h);
+ 
+    http.end(); 
+
+    http.begin(wifiClient, "http://danganhapi1.herokuapp.com/api/landHumidity"); 
+    http.addHeader("Content-Type", "application/json");
+ 
+    int httpCode_m = http.POST(moisture1);   
+    String payload_m = http.getString();              
+ 
+    Serial.println(httpCode_m);   
+    Serial.println(payload_m);
+ 
+    http.end(); 
+
+    http.begin(wifiClient, "http://danganhapi1.herokuapp.com/api/photoresistor"); 
+    http.addHeader("Content-Type", "application/json");
+ 
+    int httpCode_p = http.POST(PR1);   
+    String payload_p = http.getString();              
+ 
+    Serial.println(httpCode_p);   
+    Serial.println(payload_p);
+ 
+    http.end(); 
+
+    delay(600000);
+    
+    
 }
