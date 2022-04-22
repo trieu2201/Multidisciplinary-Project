@@ -4,20 +4,20 @@
 #include "Adafruit_MQTT_Client.h"
 
 // Wifi parameters
-#define WLAN_SSID       "iPhone"
-#define WLAN_PASS       "00000000"
+#define WLAN_SSID       "HoaiGiang"
+#define WLAN_PASS       "hoaigiang1012"
 
 // Adafruit IO
 #define AIO_SERVER      "io.adafruit.com"
 #define AIO_SERVERPORT  1883                   
 #define AIO_USERNAME    "NeedAName"
-#define AIO_KEY         "aio_orUI57evFSgygmTG6cZshWBD5BzW"
+#define AIO_KEY         "aio_fhbw55RG63QAFehEIcQU13WS0u0g"
 
 WiFiClient client;
 
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
-Adafruit_MQTT_Publish SG_Temp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/sg-temp");
-Adafruit_MQTT_Publish SG_Humi = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/sg-humi");
+Adafruit_MQTT_Publish SG_Temp = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/smart-garden-iot.humidity");
+Adafruit_MQTT_Publish SG_Humi = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/smart-garden-iot.temperature");
 
 // DHT parameters
 #define DHTPIN          D4 //what digital pin we're connected to
